@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "arxiv": {
+      "command": "poetry",
+      "args": ["run", "arxiv-mcp-server"],
+      "cwd": "/path/to/arxiv-mcp-server"
+    }
+  }
+}
