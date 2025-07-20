@@ -27,6 +27,13 @@ logger = logging.getLogger(__name__)
 
 async def main():
     """Main async entry point."""
+    import os
+    
+    # Set FORCE_SMART for academic papers by default
+    if not os.getenv("FORCE_SMART"):
+        os.environ["FORCE_SMART"] = "true"
+        logger.info("Setting FORCE_SMART=true for optimal academic paper extraction")
+    
     logger.info("Starting arXiv MCP Server...")
     
     try:

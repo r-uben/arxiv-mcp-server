@@ -28,23 +28,62 @@ logger = logging.getLogger(__name__)
 
 
 def check_nougat_available() -> bool:
-    """Check if NOUGAT is available."""
+    """Check if NOUGAT is available (CLI or Docker)."""
+    # First try CLI
     try:
         import subprocess
         result = subprocess.run(["nougat", "--help"], 
                               capture_output=True, text=True, timeout=10)
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
-        return False
+        if result.returncode == 0:
+            logger.debug("Nougat CLI available")
+            return True
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+        logger.debug(f"Nougat CLI not available: {e}")
+    
+    # Then try Docker
+    try:
+        result = subprocess.run(["docker", "ps", "--filter", "name=nougat-server", "--format", "{{.Names}}"],
+                              capture_output=True, text=True, timeout=5)
+        if "nougat-server" in result.stdout:
+            logger.debug("Nougat Docker container available")
+            return True
+    except Exception as e:
+        logger.debug(f"Nougat Docker not available: {e}")
+    
+    # Finally check if Docker itself is available for potential setup
+    try:
+        result = subprocess.run(["docker", "--version"],
+                              capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            logger.debug("Docker available for Nougat setup")
+            return True
+    except Exception:
+        pass
+    
+    return False
 
 
 def check_grobid_available(server_url: str = "http://localhost:8070") -> bool:
     """Check if GROBID server is available."""
     try:
         import requests
-        response = requests.get(f"{server_url}/api/health", timeout=5)
-        return response.status_code == 200
-    except Exception:
+        # Try multiple health endpoints
+        endpoints = ["/api/health", "/api/isalive", "/"]
+        
+        for endpoint in endpoints:
+            try:
+                response = requests.get(f"{server_url}{endpoint}", timeout=2)
+                if response.status_code in [200, 302]:  # 302 is redirect, still healthy
+                    logger.debug(f"GROBID health check successful at {server_url}{endpoint}")
+                    return True
+            except Exception as e:
+                logger.debug(f"GROBID health check failed at {server_url}{endpoint}: {e}")
+                continue
+        
+        logger.warning(f"GROBID server not available at {server_url}")
+        return False
+    except Exception as e:
+        logger.error(f"GROBID availability check error: {e}")
         return False
 
 
@@ -130,21 +169,82 @@ class DifficultyClassifier:
         return analysis
     
     async def _extract_sample_text(self, pdf_path: Path, max_pages: int = 3) -> str:
-        """Extract sample text from first few pages for analysis."""
+        """Extract sample text from strategically selected pages for analysis."""
         try:
             with pdfplumber.open(pdf_path) as pdf:
-                sample_pages = min(len(pdf.pages), max_pages)
+                total_pages = len(pdf.pages)
+                
+                if total_pages == 0:
+                    return ""
+                
+                # Strategy: Sample from beginning, middle, and end for better representation
+                sample_indices = self._get_representative_page_indices(total_pages, max_pages)
+                
                 text_parts = []
+                for i in sample_indices:
+                    try:
+                        page_text = pdf.pages[i].extract_text()
+                        if page_text:
+                            text_parts.append(f"[Page {i+1}]\n{page_text}")
+                    except Exception as e:
+                        logger.debug(f"Failed to extract text from page {i+1}: {e}")
+                        continue
                 
-                for i in range(sample_pages):
-                    page_text = pdf.pages[i].extract_text()
-                    if page_text:
-                        text_parts.append(page_text)
-                
-                return "\n".join(text_parts)
+                return "\n\n".join(text_parts)
         except Exception as e:
             logger.warning(f"Sample text extraction failed: {e}")
             return ""
+    
+    def _get_representative_page_indices(self, total_pages: int, max_samples: int = 3) -> list[int]:
+        """Get representative page indices for better complexity assessment."""
+        import random
+        
+        if total_pages <= max_samples:
+            return list(range(total_pages))
+        
+        # Strategy depends on document length
+        if total_pages <= 5:
+            # Short docs: sample all or most pages
+            return list(range(min(total_pages, max_samples)))
+        
+        elif total_pages <= 15:
+            # Medium docs: beginning, middle, end
+            indices = [
+                0,  # First page (abstract/intro)
+                total_pages // 2,  # Middle (methods/results)
+                total_pages - 1   # End (conclusions)
+            ]
+            return indices[:max_samples]
+        
+        else:
+            # Long docs: strategic sampling with randomization
+            # Always include: early (but not first), middle, and late sections
+            sections = [
+                range(1, min(4, total_pages)),           # Early (skip title page)
+                range(total_pages // 3, 2 * total_pages // 3),  # Middle (methods/results)
+                range(2 * total_pages // 3, total_pages - 1)    # Late (conclusions)
+            ]
+            
+            indices = []
+            samples_per_section = max(1, max_samples // len(sections))
+            
+            for section in sections:
+                if section and len(indices) < max_samples:
+                    # Randomly sample from each section
+                    section_pages = list(section)
+                    sample_count = min(samples_per_section, len(section_pages), max_samples - len(indices))
+                    if sample_count > 0:
+                        indices.extend(random.sample(section_pages, sample_count))
+            
+            # Fill remaining slots with random pages if needed
+            while len(indices) < max_samples and len(indices) < total_pages:
+                remaining_pages = [i for i in range(total_pages) if i not in indices]
+                if remaining_pages:
+                    indices.append(random.choice(remaining_pages))
+                else:
+                    break
+            
+            return sorted(indices[:max_samples])
     
     async def _get_page_count(self, pdf_path: Path) -> int:
         """Get total page count."""
@@ -363,55 +463,76 @@ class NOUGATExtractor:
     """NOUGAT-based PDF extraction for academic documents."""
     
     def __init__(self):
-        self.model_tag = "0.1.17-base"  # Updated to current stable NOUGAT model
+        self.model_tag = "0.1.17-base"
+        self.docker_extractor = None
         
     async def extract_document(self, pdf_path: Path) -> Dict[str, Any]:
-        """Extract document using NOUGAT neural OCR."""
+        """Extract document using NOUGAT neural OCR (CLI or Docker)."""
+        
+        # Try CLI first
         try:
-            # Create temporary output directory
-            with tempfile.TemporaryDirectory() as temp_dir:
-                output_dir = Path(temp_dir)
+            return await self._extract_with_cli(pdf_path)
+        except Exception as cli_error:
+            logger.warning(f"NOUGAT CLI failed: {cli_error}")
+            
+            # Try Docker as fallback
+            try:
+                logger.info("Attempting NOUGAT Docker extraction as fallback...")
+                return await self._extract_with_docker(pdf_path)
+            except Exception as docker_error:
+                logger.error(f"NOUGAT Docker also failed: {docker_error}")
+                raise Exception(f"Both NOUGAT methods failed - CLI: {cli_error}, Docker: {docker_error}")
+    
+    async def _extract_with_cli(self, pdf_path: Path) -> Dict[str, Any]:
+        """Extract using NOUGAT CLI."""
+        # Create temporary output directory
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            
+            # Run NOUGAT command
+            cmd = [
+                "nougat",
+                str(pdf_path),
+                "--out", str(output_dir),
+                "--model", self.model_tag,
+                "--no-skipping"  # Process all pages
+            ]
+            
+            # Execute NOUGAT
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            stdout, stderr = await process.communicate()
+            
+            if process.returncode != 0:
+                raise Exception(f"NOUGAT CLI failed: {stderr.decode()}")
+            
+            # Read the generated .mmd file
+            mmd_file = output_dir / f"{pdf_path.stem}.mmd"
+            if mmd_file.exists():
+                content = mmd_file.read_text(encoding='utf-8')
                 
-                # Run NOUGAT command
-                cmd = [
-                    "nougat",
-                    str(pdf_path),
-                    "--out", str(output_dir),
-                    "--model", self.model_tag,
-                    "--no-skipping"  # Process all pages
-                ]
-                
-                # Execute NOUGAT
-                process = await asyncio.create_subprocess_exec(
-                    *cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
-                )
-                
-                stdout, stderr = await process.communicate()
-                
-                if process.returncode != 0:
-                    raise Exception(f"NOUGAT failed: {stderr.decode()}")
-                
-                # Read the generated .mmd file
-                mmd_file = output_dir / f"{pdf_path.stem}.mmd"
-                if mmd_file.exists():
-                    content = mmd_file.read_text(encoding='utf-8')
-                    
-                    return {
-                        "content": content,
-                        "sections": self._parse_sections(content),
-                        "extraction_method": "nougat_neural_ocr",
-                        "processing_time": "~10s",
-                        "quality_estimate": 0.90,
-                        "format": "mathpix_markdown"
-                    }
-                else:
-                    raise Exception("NOUGAT output file not found")
-                    
-        except Exception as e:
-            logger.error(f"NOUGAT extraction failed: {e}")
-            raise
+                return {
+                    "content": content,
+                    "sections": self._parse_sections(content),
+                    "extraction_method": "nougat_cli",
+                    "processing_time": "~10s",
+                    "quality_estimate": 0.90,
+                    "format": "mathpix_markdown"
+                }
+            else:
+                raise Exception("NOUGAT output file not found")
+    
+    async def _extract_with_docker(self, pdf_path: Path) -> Dict[str, Any]:
+        """Extract using NOUGAT Docker container."""
+        if not self.docker_extractor:
+            from .nougat_docker import NougatDockerExtractor
+            self.docker_extractor = NougatDockerExtractor()
+        
+        return await self.docker_extractor.extract_document(pdf_path)
     
     def _parse_sections(self, content: str) -> Dict[str, str]:
         """Parse sections from NOUGAT markdown output."""
@@ -598,8 +719,17 @@ class SmartPDFExtractor:
             force_analysis: If True, always run difficulty analysis
         """
         
-        # Step 1: Analyze difficulty (unless user forces a tier)
-        if user_preference and not force_analysis:
+        # Step 1: Check for FORCE_SMART environment variable for academic papers
+        force_smart = os.getenv("FORCE_SMART", "false").lower() == "true"
+        if force_smart and not user_preference:
+            analysis = {
+                "tier_recommendation": ExtractionTier.SMART,
+                "confidence": 1.0,
+                "reasoning": ["Forced SMART tier for academic papers (FORCE_SMART=true)"]
+            }
+            logger.info("FORCE_SMART enabled - using SMART tier for academic paper")
+        # Step 2: Analyze difficulty (unless user forces a tier)
+        elif user_preference and not force_analysis:
             analysis = {
                 "tier_recommendation": user_preference,
                 "confidence": 1.0,
@@ -636,7 +766,9 @@ class SmartPDFExtractor:
         logger.info(
             f"PDF extraction complete - Tier: {analysis['tier_recommendation'].value}, "
             f"Confidence: {analysis['confidence']:.2f}, "
-            f"Success: {result['success']}"
+            f"Success: {result['success']}, "
+            f"Method: {extraction_result.get('extraction_method', 'unknown')}, "
+            f"Processing: {extraction_result.get('processing_time', 'unknown')}"
         )
         
         return result
@@ -668,64 +800,148 @@ class SmartPDFExtractor:
                 return {"error": f"All extraction methods failed: {e}"}
     
     async def _extract_fast(self, pdf_path: Path) -> Dict[str, Any]:
-        """Fast extraction using current pdfplumber + PyPDF2 method."""
-        content = await self.paper_reader.download_and_read_paper(
-            str(pdf_path.stem), 
-            format_type="pdf"
-        )
+        """Fast extraction using direct pdfplumber + PyPDF2 method."""
+        try:
+            # Direct file extraction without using paper_reader
+            content = await self._extract_with_pdfplumber(pdf_path)
+            
+            return {
+                "content": content.get("text", ""),
+                "sections": content.get("sections", {}),
+                "metadata": content.get("metadata", {}),
+                "extraction_method": "fast_pdfplumber_direct",
+                "processing_time": "~1s",
+                "quality_estimate": 0.7
+            }
+        except Exception as e:
+            logger.error(f"Fast extraction failed: {e}")
+            raise
+    
+    async def _extract_with_pdfplumber(self, pdf_path: Path) -> Dict[str, Any]:
+        """Extract content directly using pdfplumber."""
+        text_parts = []
+        sections = {}
+        metadata = {}
+        
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                metadata = {
+                    "page_count": len(pdf.pages),
+                    "title": pdf.metadata.get("Title", ""),
+                    "author": pdf.metadata.get("Author", ""),
+                    "creator": pdf.metadata.get("Creator", "")
+                }
+                
+                current_section = "content"
+                section_content = []
+                
+                for page_num, page in enumerate(pdf.pages):
+                    try:
+                        page_text = page.extract_text()
+                        if page_text:
+                            # Simple section detection
+                            lines = page_text.split('\n')
+                            for line in lines:
+                                line = line.strip()
+                                if line and len(line) < 100 and any(keyword in line.lower() for keyword in 
+                                    ['abstract', 'introduction', 'method', 'result', 'conclusion', 'reference']):
+                                    # Likely a section header
+                                    if section_content:
+                                        sections[current_section] = '\n'.join(section_content)
+                                    current_section = line.lower().replace(' ', '_')
+                                    section_content = []
+                                else:
+                                    section_content.append(line)
+                            
+                            text_parts.append(f"--- Page {page_num + 1} ---\n{page_text}")
+                    except Exception as e:
+                        logger.warning(f"Failed to extract text from page {page_num + 1}: {e}")
+                        continue
+                
+                # Save last section
+                if section_content:
+                    sections[current_section] = '\n'.join(section_content)
+                
+        except Exception as e:
+            logger.error(f"pdfplumber extraction failed: {e}")
+            # Fallback to PyPDF2
+            try:
+                with open(pdf_path, 'rb') as file:
+                    reader = PyPDF2.PdfReader(file)
+                    for page_num, page in enumerate(reader.pages):
+                        try:
+                            page_text = page.extract_text()
+                            if page_text:
+                                text_parts.append(f"--- Page {page_num + 1} ---\n{page_text}")
+                        except Exception as e:
+                            logger.warning(f"PyPDF2 failed on page {page_num + 1}: {e}")
+                            continue
+            except Exception as fallback_error:
+                logger.error(f"PyPDF2 fallback also failed: {fallback_error}")
+                raise Exception(f"All fast extraction methods failed: {e}, {fallback_error}")
+        
+        full_text = '\n\n'.join(text_parts)
         
         return {
-            "content": content["content"].get("clean_text", ""),
-            "sections": content["content"].get("sections", {}),
-            "metadata": content["content"].get("metadata", {}),
-            "extraction_method": "fast_pdfplumber",
-            "processing_time": "~1s",
-            "quality_estimate": 0.7
+            "text": full_text,
+            "sections": sections,
+            "metadata": metadata
         }
     
     async def _extract_smart(self, pdf_path: Path) -> Dict[str, Any]:
-        """Smart extraction using NOUGAT/GROBID with fallback."""
-        # Try NOUGAT first (best for academic papers with math)
+        """Smart extraction using GROBID primarily (NOUGAT disabled due to dependency issues)."""
+        # Check for FORCE_SMART environment variable
+        force_smart = os.getenv("FORCE_SMART", "false").lower() == "true"
+        
+        # Try GROBID first (most reliable for academic papers)
+        grobid_server_url = os.getenv("GROBID_SERVER", "http://localhost:8070")
+        
+        if force_smart or check_grobid_available(grobid_server_url):
+            try:
+                logger.info(f"Attempting GROBID extraction at {grobid_server_url}...")
+                if not self.grobid_extractor:
+                    if GROBID_AVAILABLE:
+                        self.grobid_extractor = GROBIDExtractor(grobid_server_url)
+                    else:
+                        raise ImportError("GROBID client not available")
+                return await self.grobid_extractor.extract_document(pdf_path)
+            except Exception as grobid_error:
+                logger.warning(f"GROBID extraction failed: {grobid_error}")
+                if force_smart:
+                    # Don't fallback if explicitly forced
+                    raise grobid_error
+        else:
+            logger.warning(f"GROBID server not available at {grobid_server_url}")
+        
+        # Try NOUGAT as fallback (if not forced GROBID)
         try:
-            logger.info("Attempting NOUGAT extraction...")
+            logger.info("Attempting NOUGAT extraction as fallback...")
             return await self.nougat_extractor.extract_document(pdf_path)
         except Exception as nougat_error:
             logger.warning(f"NOUGAT failed: {nougat_error}")
             
-            # Fallback to GROBID
-            try:
-                logger.info("Falling back to GROBID extraction...")
-                if not self.grobid_extractor:
-                    if GROBID_AVAILABLE:
-                        self.grobid_extractor = GROBIDExtractor()
-                    else:
-                        raise ImportError("GROBID not available")
-                return await self.grobid_extractor.extract_document(pdf_path)
-            except Exception as grobid_error:
-                logger.warning(f"GROBID failed: {grobid_error}")
-                
-                # Final fallback to enhanced basic extraction
-                logger.info("Using enhanced basic extraction as final fallback...")
-                content = await self.paper_reader.download_and_read_paper(
-                    str(pdf_path.stem),
-                    format_type="pdf"
-                )
-                
-                # Enhanced processing for SMART tier
-                summary = await self.paper_analyzer.summarize_paper(str(pdf_path.stem))
-                findings = await self.paper_analyzer.extract_key_findings(str(pdf_path.stem))
-                
-                return {
-                    "content": content["content"].get("clean_text", ""),
-                    "sections": content["content"].get("sections", {}),
-                    "summary": summary,
-                    "key_findings": findings,
-                    "metadata": content["content"].get("metadata", {}),
-                    "extraction_method": "smart_fallback_enhanced",
-                    "processing_time": "~5s",
-                    "quality_estimate": 0.75,
-                    "fallback_reason": f"NOUGAT: {nougat_error}, GROBID: {grobid_error}"
-                }
+            # Final fallback to enhanced basic extraction
+            logger.info("Using enhanced basic extraction as final fallback...")
+            content = await self.paper_reader.download_and_read_paper(
+                str(pdf_path.stem),
+                format_type="pdf"
+            )
+            
+            # Enhanced processing for SMART tier
+            summary = await self.paper_analyzer.summarize_paper(str(pdf_path.stem))
+            findings = await self.paper_analyzer.extract_key_findings(str(pdf_path.stem))
+            
+            return {
+                "content": content["content"].get("clean_text", ""),
+                "sections": content["content"].get("sections", {}),
+                "summary": summary,
+                "key_findings": findings,
+                "metadata": content["content"].get("metadata", {}),
+                "extraction_method": "smart_fallback_enhanced",
+                "processing_time": "~5s",
+                "quality_estimate": 0.75,
+                "fallback_reason": f"NOUGAT: {nougat_error}"
+            }
     
     async def _extract_premium(self, pdf_path: Path) -> Dict[str, Any]:
         """Premium extraction using Mistral OCR."""

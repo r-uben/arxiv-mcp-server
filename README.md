@@ -1,289 +1,113 @@
 # arXiv MCP Server
 
-A Model Context Protocol (MCP) server for searching and retrieving academic papers from arXiv. This server enables Claude Code and other MCP-compatible tools to search arXiv papers, get detailed paper information, and retrieve recent papers by category.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-## Features
+A comprehensive Model Context Protocol (MCP) server that provides intelligent access to arXiv's academic paper repository. This server transforms how you interact with scientific literature by offering advanced search, content analysis, and citation management capabilities through any MCP-compatible interface like Claude Code.
 
-### Core Search & Discovery
-- **Search papers**: Search arXiv by keywords, authors, categories, and date ranges
-- **Paper details**: Get detailed information about specific papers by arXiv ID
-- **Recent papers**: Retrieve recent papers from specific arXiv categories
-- **Author search**: Find all papers by specific authors with smart name matching
-- **Similar papers**: Discover related papers using keywords, categories, or authors
+## ✨ Key Features
 
-### Paper Content Analysis
-- **Full paper reading**: Download and extract complete text from PDF files
-- **Three-tier smart extraction**: Adaptive PDF processing (FAST/SMART/PREMIUM)
-- **Intelligent summarization**: Generate structured summaries with key sections
-- **Key findings extraction**: Identify contributions, methodology, and results
-- **Multi-paper comparison**: Compare papers across methodology, results, and scope
-- **Mathematical content**: Extract equations and mathematical formulations
-- **PDF difficulty analysis**: Automatic complexity assessment and tier recommendation
+### 🔍 **Smart Search & Discovery**
 
-### Citation & Bibliography Tools
-- **Citation formatting**: Generate properly formatted citations (APA, MLA, Chicago, BibTeX)
-- **Bibliography export**: Create formatted bibliographies for multiple papers
-- **Citation tracking**: Find papers that cite a given work (via Semantic Scholar)
-- **Citation networks**: Build networks showing reference relationships
+- **Advanced Search**: Multi-faceted search by keywords, authors, categories, and date ranges
+- **Author Intelligence**: Smart name matching and comprehensive author paper discovery
+- **Category Filtering**: Browse recent papers by specific arXiv subject areas
+- **Similarity Detection**: Find related papers through intelligent content analysis
 
-### Advanced Features
-- **PDF caching**: Intelligent caching system for downloaded papers
-- **Section extraction**: Automatically identify abstract, methodology, results, etc.
-- **Rate limiting**: Respects arXiv API limits (3 requests/second)
-- **Rich formatting**: Clean, readable output with proper LaTeX handling
+### 📄 **Intelligent Content Analysis**
 
-## Installation
+- **Adaptive PDF Processing**: Three-tier extraction system (FAST/SMART/PREMIUM) automatically selects optimal method
+- **Full-Text Extraction**: Complete paper content with mathematical formulations preserved
+- **Structured Summarization**: AI-powered summaries highlighting key contributions and methodology
+- **Comparative Analysis**: Side-by-side comparison of multiple papers across different dimensions
 
-1. Clone this repository:
+### 📚 **Professional Citation Management**
+
+- **Multi-Format Citations**: Generate citations in APA, MLA, Chicago, and BibTeX formats
+- **Bibliography Export**: Create publication-ready reference lists
+- **Citation Networks**: Discover citation relationships and academic influence
+- **Reference Tracking**: Find papers that cite specific works (via Semantic Scholar integration)
+
+### ⚡ **Performance & Reliability**
+
+- **Intelligent Caching**: Efficient PDF storage and retrieval system
+- **Rate Limit Compliance**: Respects arXiv API guidelines (3 requests/second)
+- **Graceful Fallbacks**: Automatic tier downgrade when premium services unavailable
+- **Rich Text Processing**: Handles LaTeX formatting and mathematical notation
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.8 or higher
+- Poetry package manager
+
+### Installation
+
 ```bash
+# Clone the repository
 git clone <repository-url>
 cd arxiv-mcp-server
-```
 
-2. Install dependencies using Poetry:
-```bash
+# Install dependencies
 poetry install
+
+# Start the server
+poetry run arxiv-mcp-server
 ```
 
-## Configuration
+## ⚙️ Configuration
 
-### Smart PDF Extraction Setup
+### PDF Extraction Tiers
 
-The smart extractor uses three tiers for optimal PDF processing:
+The server automatically selects the best extraction method based on document complexity and available tools:
 
-#### FAST Tier (Default - No Setup Required)
-- Uses built-in pdfplumber + PyPDF2
-- Works immediately after installation
-- ~1s processing, ~70% quality
+| Tier | Speed | Quality | Requirements | Best For |
+|------|-------|---------|-------------|----------|
+| **FAST** | ~1s | ~70% | Built-in (default) | Simple text documents |
+| **SMART** | ~5-10s | ~85-90% | External tools | Academic papers with math |
+| **PREMIUM** | ~10s | ~95% | API key | Complex layouts, heavy math |
 
-#### SMART Tier (Requires External Tools)
+### Optional Enhancements
 
-**Option 1: NOUGAT (Recommended for academic papers with math)**
+#### For SMART Tier (Choose one or both)
+
+**NOUGAT** - Neural OCR for mathematical content:
+
 ```bash
-# Install NOUGAT for neural OCR
 pip install "nougat-ocr[api]>=0.1.17"
-
-# Test installation
-nougat --help
 ```
 
-**Option 2: GROBID (Recommended for structured extraction)**
+**GROBID** - Structured document parsing:
+
 ```bash
-# Install GROBID client
+# Install client
 pip install "grobid-client-python>=0.8.0"
 
-# Run GROBID server (Docker recommended)
+# Run server (Docker)
 docker run --rm -it --init -p 8070:8070 lfoppiano/grobid:0.8.0
 ```
 
-#### PREMIUM Tier (API Required)
+#### For PREMIUM Tier
 
-**Mistral OCR API Setup**
 ```bash
-export MISTRAL_API_KEY="your-mistral-api-key-here"
+export MISTRAL_API_KEY="your-mistral-api-key"
 ```
 
 ### Environment Variables
 
-- **MISTRAL_API_KEY**: Required for premium tier extraction
-- **GROBID_SERVER**: GROBID server URL (default: http://localhost:8070)
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `MISTRAL_API_KEY` | Premium OCR extraction | None |
+| `GROBID_SERVER` | GROBID server URL | `http://localhost:8070` |
 
-### Fallback Behavior
+> **Note**: Missing dependencies only affect their specific tier. The system gracefully falls back to available methods.
 
-The smart extractor automatically falls back:
-- PREMIUM → SMART → FAST
-- NOUGAT failure → GROBID → Enhanced basic extraction
-- Missing API keys or tools automatically use available methods
+## 🔧 MCP Integration
 
-**Note:** All tiers work independently. Missing dependencies only affect that specific tier.
+### Claude Code Setup
 
-## Usage
-
-### Running the Server
-
-Start the MCP server:
-```bash
-poetry run arxiv-mcp-server
-```
-
-### Available Tools
-
-#### Basic Search & Discovery
-
-#### 1. search_papers
-Search for academic papers on arXiv.
-
-**Parameters:**
-- `query` (required): Search query (keywords, titles, authors)
-- `max_results` (optional): Maximum number of results (default: 10, max: 100)
-- `categories` (optional): Filter by arXiv categories (e.g., ["cs.AI", "math.CO"])
-- `start_date` (optional): Start date filter (YYYY-MM-DD)
-- `end_date` (optional): End date filter (YYYY-MM-DD)
-
-**Example:**
-```json
-{
-  "query": "machine learning transformers",
-  "max_results": 5,
-  "categories": ["cs.AI", "cs.LG"],
-  "start_date": "2023-01-01"
-}
-```
-
-#### 2. get_paper_details
-Get detailed information about a specific paper.
-
-**Parameters:**
-- `arxiv_id` (required): arXiv paper ID (e.g., "2301.00001" or "1234.5678v2")
-
-**Example:**
-```json
-{
-  "arxiv_id": "2301.00001"
-}
-```
-
-#### 3. get_recent_papers
-Get recent papers from specific arXiv categories.
-
-**Parameters:**
-- `category` (required): arXiv category (e.g., "cs.AI", "math.CO", "physics.gen-ph")
-- `max_results` (optional): Maximum number of results (default: 10, max: 50)
-- `days_back` (optional): Number of days to look back (default: 7, max: 30)
-
-**Example:**
-```json
-{
-  "category": "cs.AI",
-  "max_results": 10,
-  "days_back": 14
-}
-```
-
-#### 4. get_author_papers
-Find all papers by a specific author with smart name matching.
-
-**Parameters:**
-- `author_name` (required): Author name to search for
-- `max_results` (optional): Maximum number of results (default: 20, max: 100)
-- `categories` (optional): Filter by arXiv categories
-- `start_date` (optional): Start date filter (YYYY-MM-DD)
-- `end_date` (optional): End date filter (YYYY-MM-DD)
-
-#### 5. find_similar_papers
-Find papers similar to a reference paper.
-
-**Parameters:**
-- `reference_paper_id` (required): arXiv ID of the reference paper
-- `max_results` (optional): Maximum number of similar papers (default: 10, max: 20)
-- `similarity_method` (optional): Method for similarity (keywords, categories, authors)
-
-#### Paper Content Analysis
-
-#### 6. download_and_read_paper
-Download and extract full text content from an ArXiv paper.
-
-**Parameters:**
-- `arxiv_id` (required): arXiv paper ID to download and read
-- `format_type` (optional): Format to download (pdf or tex, default: pdf)
-- `force_download` (optional): Force re-download even if cached
-
-#### 7. summarize_paper
-Generate a structured summary of a paper with key sections.
-
-**Parameters:**
-- `arxiv_id` (required): arXiv paper ID to summarize
-
-#### 8. extract_key_findings
-Extract key findings, contributions, and methodology from a paper.
-
-**Parameters:**
-- `arxiv_id` (required): arXiv paper ID to analyze
-
-#### 9. compare_papers
-Compare multiple papers across different aspects.
-
-**Parameters:**
-- `paper_ids` (required): List of arXiv paper IDs to compare (2-5 papers)
-- `comparison_aspects` (optional): Aspects to compare (methodology, results, contributions, scope)
-
-#### Citation & Bibliography Tools
-
-#### 10. format_citation
-Format a paper citation in various academic styles.
-
-**Parameters:**
-- `arxiv_id` (required): arXiv paper ID to format
-- `style` (optional): Citation style (apa, mla, chicago, bibtex, default: apa)
-
-#### 11. export_bibliography
-Export multiple papers as a formatted bibliography.
-
-**Parameters:**
-- `arxiv_ids` (required): List of arXiv paper IDs to include
-- `style` (optional): Citation style (apa, mla, chicago, bibtex, default: apa)
-
-#### 12. find_citing_papers
-Find papers that cite a given ArXiv paper using Semantic Scholar.
-
-**Parameters:**
-- `arxiv_id` (required): arXiv paper ID to find citations for
-- `max_results` (optional): Maximum number of citing papers (default: 20, max: 50)
-
-#### 13. get_citation_network
-Build a citation network around a paper showing references and citations.
-
-**Parameters:**
-- `arxiv_id` (required): arXiv paper ID to build network around
-- `depth` (optional): Network depth (default: 2, max: 3)
-
-#### Advanced PDF Extraction
-
-#### 14. smart_extract_paper
-Advanced PDF extraction with three-tier adaptive mechanism for optimal quality.
-
-**Parameters:**
-- `arxiv_id` (required): arXiv paper ID to extract content from
-- `extraction_tier` (optional): Force specific tier (fast, smart, premium)
-- `budget_mode` (optional): If true, avoid paid services (default: false)
-- `force_analysis` (optional): Always analyze difficulty even with user-specified tier (default: false)
-
-**Extraction Tiers:**
-- **FAST**: pdfplumber + PyPDF2 (simple papers, ~1s, ~70% quality)
-- **SMART**: NOUGAT → GROBID → Enhanced fallback (moderate complexity, ~5-10s, ~85-90% quality)
-- **PREMIUM**: Mistral OCR v2 (math/complex layouts, ~10s, ~95% quality)
-
-**Example:**
-```json
-{
-  "arxiv_id": "2301.00001",
-  "extraction_tier": "smart",
-  "budget_mode": false
-}
-```
-
-#### 15. analyze_paper_difficulty
-Analyze PDF complexity to determine optimal extraction method without extraction.
-
-**Parameters:**
-- `arxiv_id` (required): arXiv paper ID to analyze
-
-**Analysis Factors:**
-- Math density (equations, symbols, Greek letters)
-- Layout complexity (multi-column, figures, tables)
-- Text extractability (OCR artifacts, scanned content)
-- File size and page count
-
-**Example:**
-```json
-{
-  "arxiv_id": "2301.00001"
-}
-```
-
-### Integration with Claude Code
-
-1. Add the server to your Claude Code configuration file (`~/.claude/claude_desktop_config.json`):
+Add to your `~/.claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -297,95 +121,122 @@ Analyze PDF complexity to determine optimal extraction method without extraction
 }
 ```
 
-2. Restart Claude Code to load the server.
+Restart Claude Code and start using commands like:
 
-3. You can now use comprehensive arXiv tools directly in Claude Code:
-   - "Search for recent papers on quantum computing"
-   - "Read and summarize this paper: 2301.00001"
-   - "Use smart extraction on paper 2301.00001 with premium quality"
-   - "Analyze the difficulty of extracting content from paper 2301.00001"
-   - "Find papers similar to arXiv:2301.00001"
-   - "Compare these three papers on machine learning"
-   - "Format a citation for paper 2301.00001 in APA style"
-   - "Find papers that cite this work"
-   - "Get all papers by author 'Geoffrey Hinton'"
+- *"Search for recent papers on quantum computing"*
+- *"Read and summarize paper 2301.00001"*
+- *"Find papers similar to arXiv:2301.00001"*
+- *"Format a citation for paper 2301.00001 in APA style"*
 
-## Development
+## 📖 API Reference
 
-### Running Tests
+### Available Tools
+
+<details>
+
+<summary><strong>📋 Search & Discovery</strong></summary>
+
+**Search Tools:**
+
+- `search_papers` - Advanced search with keyword, author, category, and date filters
+- `get_recent_papers` - Latest papers from specific arXiv categories
+- `get_author_papers` - Find all papers by specific authors with smart matching
+- `find_similar_papers` - Discover related papers using various similarity methods
+- `get_paper_details` - Detailed metadata for specific paper IDs
+
+</details>
+
+<details>
+
+<summary><strong>📄 Content Analysis</strong></summary>
+
+**Extraction Tools:**
+
+- `smart_extract_paper` - Advanced PDF extraction with three-tier quality system
+- `download_and_read_paper` - Full text extraction with format options
+- `analyze_paper_difficulty` - Assess PDF complexity for optimal extraction method
+
+**Analysis Tools:**
+
+- `summarize_paper` - Generate structured summaries with key insights
+- `extract_key_findings` - Identify contributions, methodology, and results
+- `compare_papers` - Multi-paper comparative analysis across dimensions
+
+</details>
+
+<details>
+
+<summary><strong>📚 Citation Management</strong></summary>
+
+**Citation Tools:**
+
+- `format_citation` - Generate citations in APA, MLA, Chicago, BibTeX formats
+- `export_bibliography` - Create publication-ready reference lists
+- `find_citing_papers` - Discover papers that reference a work (via Semantic Scholar)
+- `get_citation_network` - Build citation relationship networks
+
+</details>
+
+### Quick Reference
+
+**Example Usage:**
+
+```json
+{
+  "query": "machine learning transformers",
+  "max_results": 5,
+  "categories": ["cs.AI", "cs.LG"]
+}
+```
+
+For detailed parameter documentation, see the [MCP protocol specification](https://github.com/modelcontextprotocol/spec).
+
+## 🛠️ Development
 
 ```bash
+# Quick commands
+poetry run pytest          # Run tests
+poetry run black .         # Format code
+poetry run ruff check .    # Lint code
+poetry run arxiv-mcp-server # Start server
+```
+
+## 📚 arXiv Categories Reference
+
+| Field | Examples |
+|-------|----------|
+| **Computer Science** | `cs.AI`, `cs.LG`, `cs.CV`, `cs.CL` |
+| **Mathematics** | `math.CO`, `math.NT`, `math.AG` |
+| **Physics** | `astro-ph`, `cond-mat`, `hep-ph` |
+| **Biology** | `q-bio.BM`, `q-bio.CB`, `q-bio.GN` |
+
+[Complete taxonomy →](https://arxiv.org/category_taxonomy)
+
+## ⚡ Performance Notes
+
+- **Rate Limiting**: Complies with arXiv's 3 requests/second limit
+- **Smart Caching**: Reduces redundant downloads and API calls
+- **Graceful Degradation**: Automatic fallbacks for unavailable services
+- **Error Recovery**: Comprehensive handling for network issues and malformed data
+
+## 🤝 Contributing
+
+Contributions welcome! Please fork the repository, create a feature branch, add tests, and submit a pull request.
+
+```bash
+# Development workflow
+git checkout -b feature/your-feature
+poetry install
 poetry run pytest
-```
-
-### Code Formatting
-
-```bash
 poetry run black .
-poetry run ruff check .
 ```
 
-### Project Structure
+## 📝 License
 
-```
-arxiv-mcp-server/
-   src/arxiv_mcp_server/     # Main package
-      __init__.py
-      server.py             # MCP server implementation
-      arxiv_client.py       # arXiv API client
-   mains/                    # Executable scripts
-      server.py             # Main entry point
-   tests/                    # Test files
-      test_server.py
-      test_arxiv_client.py
-   logs/                     # Log files
-   pyproject.toml            # Project configuration
-   README.md
-```
+MIT License - see [LICENSE](LICENSE) for details.
 
-## arXiv Categories
+---
 
-Common arXiv categories you can use:
+**Built with ❤️ for the research community**
 
-- **Computer Science**: `cs.AI`, `cs.LG`, `cs.CV`, `cs.CL`, `cs.CR`, `cs.DS`
-- **Mathematics**: `math.CO`, `math.NT`, `math.AG`, `math.GT`
-- **Physics**: `physics.gen-ph`, `astro-ph`, `cond-mat`, `hep-ph`
-- **Quantitative Biology**: `q-bio.BM`, `q-bio.CB`, `q-bio.GN`
-- **Economics**: `econ.EM`, `econ.GN`, `econ.TH`
-
-For a complete list, see: https://arxiv.org/category_taxonomy
-
-## Rate Limiting
-
-This server respects arXiv's API guidelines:
-- Maximum 3 requests per second
-- Built-in rate limiting with async queue management
-- Automatic retry and backoff for API errors
-
-## Error Handling
-
-The server includes comprehensive error handling:
-- Invalid arXiv IDs
-- Network timeouts and API errors
-- Malformed XML responses
-- Date parsing errors
-- Rate limit exceeded
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Run the test suite
-6. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details.
-
-## Acknowledgments
-
-- arXiv for providing the free API
-- The MCP team for the excellent protocol and SDK
-- The Claude Code team for MCP integration
+*Special thanks to arXiv for their open API, the MCP team for the excellent protocol, and Claude Code for seamless integration.*

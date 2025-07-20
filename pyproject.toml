@@ -34,6 +34,7 @@ build-backend = "poetry.core.masonry.api"
 arxiv-mcp-server = "server:run"
 test-extraction = "mains.test_extraction_direct:main"
 check-deps = "mains.check_dependencies:main"
+test-nougat = "mains.test_nougat:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
