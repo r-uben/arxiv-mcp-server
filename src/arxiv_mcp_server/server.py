@@ -886,7 +886,18 @@ class ArxivMCPServer:
         output += "## Extraction Results\n"
         output += f"**Method:** {extraction.get('extraction_method', 'unknown')}\n"
         output += f"**Processing Time:** {extraction.get('processing_time', 'unknown')}\n"
-        output += f"**Quality Estimate:** {extraction.get('quality_estimate', 0):.1%}\n\n"
+        output += f"**Quality Estimate:** {extraction.get('quality_estimate', 0):.1%}\n"
+        
+        # Add fallback information if present
+        if extraction.get("fallback_info"):
+            fallback_info = extraction["fallback_info"]
+            if fallback_info.get("user_message"):
+                output += f"\n**Note:** {fallback_info['user_message']}\n"
+        
+        if extraction.get("processing_note"):
+            output += f"**Processing:** {extraction['processing_note']}\n"
+            
+        output += "\n"
         
         # Content preview
         content = extraction.get("content", "")
@@ -983,3 +994,22 @@ class ArxivMCPServer:
 def create_server() -> ArxivMCPServer:
     """Create and return an ArxivMCPServer instance."""
     return ArxivMCPServer()
+
+
+def main():
+    """Main entry point for the MCP server."""
+    import asyncio
+    import os
+    
+    # Set FORCE_SMART for optimal academic paper extraction
+    os.environ["FORCE_SMART"] = "true"
+    logger.info("Setting FORCE_SMART=true for optimal academic paper extraction")
+    
+    logger.info("Starting arXiv MCP Server...")
+    
+    server = create_server()
+    asyncio.run(server.run())
+
+
+if __name__ == "__main__":
+    main()

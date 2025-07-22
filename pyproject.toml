@@ -12,16 +12,15 @@ packages = [
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
-    "mcp>=1.0.0",
+    "mcp==0.9.1",
     "aiohttp>=3.9.0",
-    "pydantic>=2.0.0",
+    "pydantic==2.0.3",
     "python-dateutil>=2.8.2",
     "PyPDF2>=3.0.0",
     "pdfplumber>=0.10.0",
     "requests>=2.31.0",
     "beautifulsoup4>=4.12.0",
     "lxml>=4.9.0",
-    "nougat-ocr[api]>=0.1.17",
     "grobid-client-python>=0.0.7",
 ]
 
@@ -31,10 +30,8 @@ requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [project.scripts]
-arxiv-mcp-server = "server:run"
-test-extraction = "mains.test_extraction_direct:main"
+arxiv-mcp-server = "arxiv_mcp_server.server:main"
 check-deps = "mains.check_dependencies:main"
-test-nougat = "mains.test_nougat:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

@@ -165,6 +165,11 @@ downloads/
 temp/
 tmp/
 
+# Test output directories
+tests/output/
+nougat_debug_test/
+nougat_quick/
+
 # PDF files (papers, documents)
 *.pdf
 
@@ -174,6 +179,7 @@ logs/*.log
 
 # API keys and secrets
 .env
+!.env.example
 .env.local
 .env.development.local
 .env.test.local
@@ -246,6 +252,13 @@ arxiv_papers/
 # Extraction outputs
 extractions/
 processed/
+plans/
+logs/
+tests/
+.ruff_cache/
+.claude/
+docs/
+scripts/
 
 # Development configs
 dev_config.json

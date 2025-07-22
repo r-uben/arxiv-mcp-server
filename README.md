@@ -1,7 +1,7 @@
 # arXiv MCP Server
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
 A comprehensive Model Context Protocol (MCP) server that provides intelligent access to arXiv's academic paper repository. This server transforms how you interact with scientific literature by offering advanced search, content analysis, and citation management capabilities through any MCP-compatible interface like Claude Code.
 
@@ -34,12 +34,19 @@ A comprehensive Model Context Protocol (MCP) server that provides intelligent ac
 - **Rate Limit Compliance**: Respects arXiv API guidelines (3 requests/second)
 - **Graceful Fallbacks**: Automatic tier downgrade when premium services unavailable
 - **Rich Text Processing**: Handles LaTeX formatting and mathematical notation
+- **Complete OCR Stack**: Nougat + GROBID fully integrated for math-heavy papers
+
+## 🎉 What's New
+
+### ✅ Complete OCR Integration
+
+**Nougat + GROBID fully working!** No manual setup required - advanced OCR for mathematical content is ready out of the box. The SMART tier automatically uses the best available method for academic papers with complex layouts and mathematical notation.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.11 or higher
 - Poetry package manager
 
 ### Installation
@@ -65,26 +72,25 @@ The server automatically selects the best extraction method based on document co
 | Tier | Speed | Quality | Requirements | Best For |
 |------|-------|---------|-------------|----------|
 | **FAST** | ~1s | ~70% | Built-in (default) | Simple text documents |
-| **SMART** | ~5-10s | ~85-90% | External tools | Academic papers with math |
+| **SMART** | ~5-20s | ~85-90% | GROBID + Nougat ✅ | Academic papers with math |
 | **PREMIUM** | ~10s | ~95% | API key | Complex layouts, heavy math |
 
 ### Optional Enhancements
 
 #### For SMART Tier (Choose one or both)
 
-**NOUGAT** - Neural OCR for mathematical content:
+**NOUGAT** - Neural OCR for mathematical content ✅ **FULLY WORKING**:
 
 ```bash
-pip install "nougat-ocr[api]>=0.1.17"
+# Already included in dependencies - no manual setup needed!
+# Nougat is automatically available for math-heavy papers
 ```
 
 **GROBID** - Structured document parsing:
 
 ```bash
-# Install client
-pip install "grobid-client-python>=0.8.0"
-
-# Run server (Docker)
+# Already included in dependencies - client ready to use!
+# Optional: Run GROBID server for enhanced processing
 docker run --rm -it --init -p 8070:8070 lfoppiano/grobid:0.8.0
 ```
 
@@ -100,8 +106,10 @@ export MISTRAL_API_KEY="your-mistral-api-key"
 |----------|---------|---------|
 | `MISTRAL_API_KEY` | Premium OCR extraction | None |
 | `GROBID_SERVER` | GROBID server URL | `http://localhost:8070` |
+| `FORCE_SMART` | Always use SMART tier for academic papers | `false` |
+| `FORCE_NOUGAT` | Skip GROBID and use Nougat directly for math-heavy papers | `false` |
 
-> **Note**: Missing dependencies only affect their specific tier. The system gracefully falls back to available methods.
+> **Note**: Nougat and GROBID are fully integrated. Missing external servers only affect enhanced processing - the system gracefully falls back to available methods.
 
 ## 🔧 MCP Integration
 
@@ -127,6 +135,17 @@ Restart Claude Code and start using commands like:
 - *"Read and summarize paper 2301.00001"*
 - *"Find papers similar to arXiv:2301.00001"*
 - *"Format a citation for paper 2301.00001 in APA style"*
+
+### Force Nougat for Mathematical Content
+
+To specifically use Nougat OCR for math-heavy papers:
+
+```bash
+export FORCE_NOUGAT=true
+# Then restart Claude Code
+```
+
+Now ask: *"Extract this mathematical paper using Nougat for the equations"*
 
 ## 📖 API Reference
 

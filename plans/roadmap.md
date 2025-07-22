@@ -82,6 +82,7 @@ class ArxivMCPServer:
 ### 6. **Configuration for Claude Code**
 
 You'll need to:
+
 1. Install the MCP server locally
 2. Add it to Claude Code's configuration file
 3. Restart Claude Code to load the server
