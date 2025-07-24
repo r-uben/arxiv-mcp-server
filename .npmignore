@@ -1,0 +1,67 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Test files
+tests/
+test_*.py
+*.test.py
+
+# Development files
+.env
+.env.*
+*.log
+*.db
+*.sqlite
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Package files
+*.tgz
+node_modules/
+package-lock.json
+yarn.lock
+
+# Project specific
+cache/
+downloads/
+papers/
+extractions/
+logs/
+plans/
+scripts/test*
+mains/
+
+# Keep only essential source files
+!src/
+!bin/
+!scripts/postinstall.js

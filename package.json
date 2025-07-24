@@ -1,0 +1,41 @@
+{
+  "name": "arxiv-mcp-server",
+  "version": "0.1.5",
+  "description": "An MCP server for searching and fetching papers from arXiv",
+  "main": "index.js",
+  "bin": {
+    "arxiv-mcp-server": "bin/arxiv-mcp-server.js"
+  },
+  "scripts": {
+    "start": "node bin/arxiv-mcp-server.js",
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "keywords": [
+    "mcp",
+    "arxiv",
+    "claude",
+    "ai",
+    "research"
+  ],
+  "author": "Rubén Fernández Fuertes <fernandezfuertesruben@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "cross-spawn": "^7.0.3",
+    "which": "^3.0.0"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "src/",
+    "pyproject.toml",
+    "poetry.lock",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/r-uben/arxiv-mcp-server.git"
+  }
+}

@@ -1855,10 +1855,40 @@ def main():
     """Main entry point for the MCP server."""
     import asyncio
     import os
+    import subprocess
+    import sys
+    import logging
+    
+    # Configure ALL logging to go to stderr to prevent stdout pollution
+    # This is critical for MCP protocol which expects only JSON on stdout
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[logging.StreamHandler(sys.stderr)],
+        force=True  # Override any existing configuration
+    )
     
     # Set FORCE_SMART for optimal academic paper extraction
     os.environ["FORCE_SMART"] = "true"
     logger.info("Setting FORCE_SMART=true for optimal academic paper extraction")
+    
+    # Load API keys from ~/.zshrc
+    try:
+        # Load Mistral API key
+        result = subprocess.run(["/bin/zsh", "-c", "source ~/.zshrc && command -v load_mistral_key && load_mistral_key"], 
+                               capture_output=True, text=True)
+        if result.returncode == 0:
+            logger.info("Mistral API key loaded from ~/.zshrc")
+        
+        # Load Semantic Scholar API key  
+        result = subprocess.run(["/bin/zsh", "-c", "source ~/.zshrc && command -v load_semantic_scholar_key && load_semantic_scholar_key"], 
+                               capture_output=True, text=True)
+        if result.returncode == 0:
+            logger.info("Semantic Scholar API key loaded from ~/.zshrc")
+        
+    except Exception as e:
+        logger.warning(f"Could not load API keys from ~/.zshrc: {e}")
+        # Not critical if this fails - keys might be set via other methods
     
     logger.info("Starting arXiv MCP Server...")
     

@@ -14,7 +14,7 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
     "mcp==0.9.1",
     "aiohttp>=3.9.0",
-    "pydantic==2.0.3",
+    "pydantic>=2.0.3,<3.0.0",
     "python-dateutil>=2.8.2",
     "PyPDF2>=3.0.0",
     "pdfplumber>=0.10.0",
@@ -31,7 +31,9 @@ build-backend = "poetry.core.masonry.api"
 
 [project.scripts]
 arxiv-mcp-server = "arxiv_mcp_server.server:main"
+arxiv-mcp-server-wrapper = "arxiv_mcp_server.server_wrapper:main"
 check-deps = "mains.check_dependencies:main"
+claude-extract = "mains.claude_optimized_extraction:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

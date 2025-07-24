@@ -224,6 +224,16 @@ claude_desktop_config.json
 .venv/
 poetry.lock.bak
 
+# Node/npm files
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+*.tgz
+requirements.txt
+
 # Pytest
 .pytest_cache/
 test-results/
@@ -259,6 +269,7 @@ tests/
 .claude/
 docs/
 scripts/
+plans/
 
 # Development configs
 dev_config.json

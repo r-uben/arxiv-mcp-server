@@ -7,6 +7,9 @@ import asyncio
 import subprocess
 import tempfile
 import json
+import sys
+import io
+from contextlib import redirect_stdout, redirect_stderr
 from enum import Enum
 from typing import Dict, Any, Optional, List
 from pathlib import Path
@@ -21,6 +24,26 @@ try:
 except ImportError:
     GrobidClient = None
     GROBID_AVAILABLE = False
+
+# Store the original print function to avoid recursion
+_original_print = print
+
+def _silent_print(*args, **kwargs):
+    """Redirect grobid_client print statements to stderr to avoid breaking MCP JSON protocol."""
+    if args:
+        # Use the original print function, directing to stderr
+        _original_print(*args, **kwargs, file=sys.stderr)
+
+def _patch_grobid_print():
+    """Monkey patch grobid_client to redirect print statements to stderr."""
+    if GROBID_AVAILABLE:
+        import grobid_client.grobid_client as grobid_module
+        # Replace the print function in grobid_client module
+        if hasattr(grobid_module, '__builtins__'):
+            if isinstance(grobid_module.__builtins__, dict):
+                grobid_module.__builtins__['print'] = _silent_print
+            else:
+                grobid_module.__builtins__.print = _silent_print
 
 from .paper_reader import PaperReader, PaperAnalyzer
 
@@ -582,6 +605,9 @@ class GROBIDExtractor:
             raise ImportError("GROBID client not available. Install with: pip install grobid-client-python")
         self.grobid_server = grobid_server or os.getenv("GROBID_SERVER", "http://localhost:8070")
         
+        # Apply GROBID print patch to prevent stdout pollution
+        _patch_grobid_print()
+        
         # Configure GROBID client with longer timeout for academic papers
         self.client = GrobidClient(grobid_server=self.grobid_server)
         # Override timeout settings for academic paper processing
@@ -601,18 +627,25 @@ class GROBIDExtractor:
                 output_dir = Path(temp_dir)
                 
                 # Process with GROBID (blocking call with simplified parameters)
-                result = await asyncio.to_thread(
-                    self.client.process_pdf,
-                    "processFulltextDocument", 
-                    str(pdf_path),
-                    generateIDs=False,  # Simplified to avoid timeout
-                    consolidate_header=False,  # Simplified to avoid timeout
-                    consolidate_citations=False,  # Simplified to avoid timeout
-                    include_raw_citations=False,
-                    include_raw_affiliations=False,
-                    tei_coordinates=False,
-                    segment_sentences=False
-                )
+                # Redirect stdout/stderr to prevent grobid_client print statements from breaking MCP
+                captured_output = io.StringIO()
+                with redirect_stdout(captured_output), redirect_stderr(captured_output):
+                    result = await asyncio.to_thread(
+                        self.client.process_pdf,
+                        "processFulltextDocument", 
+                        str(pdf_path),
+                        generateIDs=False,  # Simplified to avoid timeout
+                        consolidate_header=False,  # Simplified to avoid timeout
+                        consolidate_citations=False,  # Simplified to avoid timeout
+                        include_raw_citations=False,
+                        include_raw_affiliations=False,
+                        tei_coordinates=False,
+                        segment_sentences=False
+                    )
+                
+                # Log any captured output as debug info
+                if captured_output.getvalue():
+                    logger.debug(f"GROBID client output: {captured_output.getvalue()}")
                 
                 # GROBID client returns (status, status_code, xml_content)
                 if isinstance(result, tuple) and len(result) >= 3:
@@ -723,6 +756,9 @@ class SmartPDFExtractor:
         self.paper_analyzer = PaperAnalyzer()
         self.mistral_client = None
         self.grobid_extractor = None  # Will be initialized when needed
+        
+        # Apply GROBID print patch to prevent stdout pollution
+        _patch_grobid_print()
     
     async def extract_paper(
         self,

@@ -2,120 +2,85 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![MCP](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io)
 
-A comprehensive Model Context Protocol (MCP) server that provides intelligent access to arXiv's academic paper repository. This server transforms how you interact with scientific literature by offering advanced search, content analysis, and citation management capabilities through any MCP-compatible interface like Claude Code.
+I built this MCP server to access 2.4M+ arXiv papers directly in Claude Desktop. It uses GROBID for academic PDF extraction and builds citation networks to track research connections.
 
-## ✨ Key Features
+## What It Does
 
-### 🔍 **Smart Search & Discovery**
+- Search arXiv by keywords, authors, categories, and dates
+- Extract full text from PDFs using GROBID (handles equations and references)
+- Build citation networks using Semantic Scholar integration
+- Manage a local library with collections and tags
+- Generate summaries and compare papers side-by-side
 
-- **Advanced Search**: Multi-faceted search by keywords, authors, categories, and date ranges
-- **Author Intelligence**: Smart name matching and comprehensive author paper discovery
-- **Category Filtering**: Browse recent papers by specific arXiv subject areas
-- **Similarity Detection**: Find related papers through intelligent content analysis
+## PDF Extraction
 
-### 📄 **Intelligent Content Analysis**
+I implemented three extraction tiers that adapt to document complexity:
 
-- **Adaptive PDF Processing**: Three-tier extraction system (FAST/SMART/PREMIUM) automatically selects optimal method
-- **Full-Text Extraction**: Complete paper content with mathematical formulations preserved
-- **Structured Summarization**: AI-powered summaries highlighting key contributions and methodology
-- **Comparative Analysis**: Side-by-side comparison of multiple papers across different dimensions
-
-### 📚 **Professional Citation Management**
-
-- **Multi-Format Citations**: Generate citations in APA, MLA, Chicago, and BibTeX formats
-- **Bibliography Export**: Create publication-ready reference lists
-- **Citation Networks**: Discover citation relationships and academic influence
-- **Reference Tracking**: Find papers that cite specific works (via Semantic Scholar integration)
-
-### ⚡ **Performance & Reliability**
-
-- **Intelligent Caching**: Efficient PDF storage and retrieval system
-- **Rate Limit Compliance**: Respects arXiv API guidelines (3 requests/second)
-- **Graceful Fallbacks**: Automatic tier downgrade when premium services unavailable
-- **Rich Text Processing**: Handles LaTeX formatting and mathematical notation
-- **Complete OCR Stack**: Nougat + GROBID fully integrated for math-heavy papers
-
-## 🎉 What's New
-
-### ✅ Complete OCR Integration
-
-**Nougat + GROBID fully working!** No manual setup required - advanced OCR for mathematical content is ready out of the box. The SMART tier automatically uses the best available method for academic papers with complex layouts and mathematical notation.
+- **FAST**: pdfplumber for simple documents (~1s)
+- **SMART**: GROBID for academic papers (~5s) - preserves equations and references
+- **PREMIUM**: Mistral OCR for complex layouts (~2s) - requires API key
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- Python 3.11 or higher
-- Poetry package manager
-
 ### Installation
+
+#### Option 1: Install via npm (Recommended)
+
+```bash
+# Install globally
+npm install -g arxiv-mcp-server
+
+# Or install locally in a project
+npm install arxiv-mcp-server
+```
+
+#### Option 2: Install from source
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/r-uben/arxiv-mcp-server.git
 cd arxiv-mcp-server
 
-# Install dependencies
+# Install dependencies with Poetry
 poetry install
 
-# Start the server
+# Test the server
 poetry run arxiv-mcp-server
 ```
 
-## ⚙️ Configuration
+### Claude Desktop Integration
 
-### PDF Extraction Tiers
+#### For npm installation:
 
-The server automatically selects the best extraction method based on document complexity and available tools:
+Add to your `claude_desktop_config.json`:
 
-| Tier | Speed | Quality | Requirements | Best For |
-|------|-------|---------|-------------|----------|
-| **FAST** | ~1s | ~70% | Built-in (default) | Simple text documents |
-| **SMART** | ~5-20s | ~85-90% | GROBID + Nougat ✅ | Academic papers with math |
-| **PREMIUM** | ~10s | ~95% | API key | Complex layouts, heavy math |
-
-### Optional Enhancements
-
-#### For SMART Tier (Choose one or both)
-
-**NOUGAT** - Neural OCR for mathematical content ✅ **FULLY WORKING**:
-
-```bash
-# Already included in dependencies - no manual setup needed!
-# Nougat is automatically available for math-heavy papers
+```json
+{
+  "mcpServers": {
+    "arxiv": {
+      "command": "npx",
+      "args": ["arxiv-mcp-server"],
+      "cwd": "/path/to/your/project"
+    }
+  }
+}
 ```
 
-**GROBID** - Structured document parsing:
+Or for global installation:
 
-```bash
-# Already included in dependencies - client ready to use!
-# Optional: Run GROBID server for enhanced processing
-docker run --rm -it --init -p 8070:8070 lfoppiano/grobid:0.8.0
+```json
+{
+  "mcpServers": {
+    "arxiv": {
+      "command": "arxiv-mcp-server"
+    }
+  }
+}
 ```
 
-#### For PREMIUM Tier
-
-```bash
-export MISTRAL_API_KEY="your-mistral-api-key"
-```
-
-### Environment Variables
-
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `MISTRAL_API_KEY` | Premium OCR extraction | None |
-| `GROBID_SERVER` | GROBID server URL | `http://localhost:8070` |
-| `FORCE_SMART` | Always use SMART tier for academic papers | `false` |
-| `FORCE_NOUGAT` | Skip GROBID and use Nougat directly for math-heavy papers | `false` |
-
-> **Note**: Nougat and GROBID are fully integrated. Missing external servers only affect enhanced processing - the system gracefully falls back to available methods.
-
-## 🔧 MCP Integration
-
-### Claude Code Setup
-
-Add to your `~/.claude/claude_desktop_config.json`:
+#### For Poetry installation:
 
 ```json
 {
@@ -129,133 +94,95 @@ Add to your `~/.claude/claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Code and start using commands like:
+Restart Claude Desktop and you're ready to go!
 
-- *"Search for recent papers on quantum computing"*
-- *"Read and summarize paper 2301.00001"*
-- *"Find papers similar to arXiv:2301.00001"*
-- *"Format a citation for paper 2301.00001 in APA style"*
+## Examples
 
-### Force Nougat for Mathematical Content
+```
+"Search for recent papers on large language models in the last 6 months"
+"Find all papers by Geoffrey Hinton on deep learning"
+"Build a citation network around paper 2301.00001"
+"Save paper 2301.00001 to my 'Transformers' collection"
+"Summarize the key findings from paper 2301.00001"
+```
 
-To specifically use Nougat OCR for math-heavy papers:
+## ⚙️ Configuration
+
+### API Keys (Optional)
+
+For enhanced features, set these environment variables:
 
 ```bash
-export FORCE_NOUGAT=true
-# Then restart Claude Code
+# For premium PDF extraction (Mistral OCR)
+export MISTRAL_API_KEY="your-mistral-api-key"
+
+# For faster citation lookups (Semantic Scholar)
+export SEMANTIC_SCHOLAR_API_KEY="your-semantic-scholar-api-key"
 ```
 
-Now ask: *"Extract this mathematical paper using Nougat for the equations"*
+### External Services (Optional)
 
-## 📖 API Reference
-
-### Available Tools
-
-<details>
-
-<summary><strong>📋 Search & Discovery</strong></summary>
-
-**Search Tools:**
-
-- `search_papers` - Advanced search with keyword, author, category, and date filters
-- `get_recent_papers` - Latest papers from specific arXiv categories
-- `get_author_papers` - Find all papers by specific authors with smart matching
-- `find_similar_papers` - Discover related papers using various similarity methods
-- `get_paper_details` - Detailed metadata for specific paper IDs
-
-</details>
-
-<details>
-
-<summary><strong>📄 Content Analysis</strong></summary>
-
-**Extraction Tools:**
-
-- `smart_extract_paper` - Advanced PDF extraction with three-tier quality system
-- `download_and_read_paper` - Full text extraction with format options
-- `analyze_paper_difficulty` - Assess PDF complexity for optimal extraction method
-
-**Analysis Tools:**
-
-- `summarize_paper` - Generate structured summaries with key insights
-- `extract_key_findings` - Identify contributions, methodology, and results
-- `compare_papers` - Multi-paper comparative analysis across dimensions
-
-</details>
-
-<details>
-
-<summary><strong>📚 Citation Management</strong></summary>
-
-**Citation Tools:**
-
-- `format_citation` - Generate citations in APA, MLA, Chicago, BibTeX formats
-- `export_bibliography` - Create publication-ready reference lists
-- `find_citing_papers` - Discover papers that reference a work (via Semantic Scholar)
-- `get_citation_network` - Build citation relationship networks
-
-</details>
-
-### Quick Reference
-
-**Example Usage:**
-
-```json
-{
-  "query": "machine learning transformers",
-  "max_results": 5,
-  "categories": ["cs.AI", "cs.LG"]
-}
-```
-
-For detailed parameter documentation, see the [MCP protocol specification](https://github.com/modelcontextprotocol/spec).
-
-## 🛠️ Development
+**GROBID Server** - For enhanced academic paper processing:
 
 ```bash
-# Quick commands
-poetry run pytest          # Run tests
-poetry run black .         # Format code
-poetry run ruff check .    # Lint code
-poetry run arxiv-mcp-server # Start server
+docker run --rm -it --init -p 8070:8070 lfoppiano/grobid:0.8.0
 ```
 
-## 📚 arXiv Categories Reference
+### Configuration Options
 
-| Field | Examples |
-|-------|----------|
-| **Computer Science** | `cs.AI`, `cs.LG`, `cs.CV`, `cs.CL` |
-| **Mathematics** | `math.CO`, `math.NT`, `math.AG` |
-| **Physics** | `astro-ph`, `cond-mat`, `hep-ph` |
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `MISTRAL_API_KEY` | Premium OCR extraction | None |
+| `SEMANTIC_SCHOLAR_API_KEY` | Citation discovery API | None |
+| `GROBID_SERVER` | GROBID server URL | `http://localhost:8070` |
+| `FORCE_SMART` | Always use SMART tier for academic papers | `true` |
+
+## Available Tools
+
+I've implemented 25 tools across four categories:
+
+- **Search & Discovery**: search papers, find by author, get recent papers, find similar papers
+- **Library Management**: save papers, manage collections, track reading status, search library
+- **Citation Analysis**: extract references, find citing papers, build citation networks
+- **Content Analysis**: extract PDFs, summarize papers, compare papers, extract key findings
+
+## How It Works
+
+The server automatically:
+1. Analyzes PDF complexity and selects the best extraction method
+2. Caches papers locally to reduce API calls
+3. Respects rate limits (arXiv: 3 req/s, Semantic Scholar: 1-4 req/s)
+4. Falls back gracefully when services are unavailable
+
+
+
+## Development
+
+```bash
+# Development setup
+poetry install
+poetry run pytest                    # Run tests
+poetry run black .                   # Format code  
+poetry run ruff check .              # Lint code
+
+# Testing individual components
+poetry run python -m pytest tests/  # Full test suite
+poetry run arxiv-mcp-server          # Start server manually
+```
+
+## arXiv Categories
+
+| Field | Popular Categories |
+|-------|-------------------|
+| **Computer Science** | `cs.AI`, `cs.LG`, `cs.CV`, `cs.CL`, `cs.RO` |
+| **Mathematics** | `math.CO`, `math.NT`, `math.AG`, `math.ST` |
+| **Physics** | `astro-ph`, `cond-mat`, `hep-ph`, `quant-ph` |
 | **Biology** | `q-bio.BM`, `q-bio.CB`, `q-bio.GN` |
 
-[Complete taxonomy →](https://arxiv.org/category_taxonomy)
+[Complete arXiv taxonomy →](https://arxiv.org/category_taxonomy)
 
-## ⚡ Performance Notes
 
-- **Rate Limiting**: Complies with arXiv's 3 requests/second limit
-- **Smart Caching**: Reduces redundant downloads and API calls
-- **Graceful Degradation**: Automatic fallbacks for unavailable services
-- **Error Recovery**: Comprehensive handling for network issues and malformed data
+## License
 
-## 🤝 Contributing
+MIT License © 2025 Ruben Fernández-Fuertes
 
-Contributions welcome! Please fork the repository, create a feature branch, add tests, and submit a pull request.
-
-```bash
-# Development workflow
-git checkout -b feature/your-feature
-poetry install
-poetry run pytest
-poetry run black .
-```
-
-## 📝 License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-**Built with ❤️ for the research community**
-
-*Special thanks to arXiv for their open API, the MCP team for the excellent protocol, and Claude Code for seamless integration.*

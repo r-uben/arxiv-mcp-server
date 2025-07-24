@@ -35,8 +35,8 @@ class SemanticScholarClient:
         self.base_url = "https://api.semanticscholar.org/graph/v1"
         self.api_key = api_key or os.getenv("SEMANTIC_SCHOLAR_API_KEY")
         
-        # Rate limiting (1 req/sec with API key, much lower without)
-        self.rate_limit_delay = 1.0 if self.api_key else 4.0  # seconds between requests
+        # Rate limiting (1 req/sec with API key, conservative without)
+        self.rate_limit_delay = 1.0 if self.api_key else 2.0  # seconds between requests
         self.last_request_time = 0.0
         
         # Session will be created when needed
