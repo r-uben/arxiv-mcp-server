@@ -271,6 +271,9 @@ docs/
 scripts/
 plans/
 
+# Archived tests
+tests_archive.tar.gz
+
 # Development configs
 dev_config.json
 local_config.json

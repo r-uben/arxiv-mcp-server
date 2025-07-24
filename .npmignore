@@ -13,6 +13,7 @@ env/
 tests/
 test_*.py
 *.test.py
+tests_archive.tar.gz
 
 # Development files
 .env
